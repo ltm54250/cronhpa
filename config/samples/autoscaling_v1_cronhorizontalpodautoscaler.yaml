@@ -1,0 +1,6 @@
+apiVersion: autoscaling.example.com/v1
+kind: CronHorizontalPodAutoscaler
+metadata:
+  name: cronhorizontalpodautoscaler-sample
+spec:
+  # Add fields here
