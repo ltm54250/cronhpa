@@ -30,7 +30,8 @@ import (
 // CronHorizontalPodAutoscalerReconciler reconciles a CronHorizontalPodAutoscaler object
 type CronHorizontalPodAutoscalerReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme      *runtime.Scheme
+	CronManager *CronManager
 }
 
 //+kubebuilder:rbac:groups=autoscaling.example.com,resources=cronhorizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete

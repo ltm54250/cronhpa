@@ -13,15 +13,22 @@ RUN go mod download
 COPY main.go main.go
 COPY api/ api/
 COPY controllers/ controllers/
+COPY cron/ cron/
+COPY lib/ lib/
+
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -o cronhpa-controller main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+FROM alpine:3.12.0
+RUN apk add --no-cache tzdata
 WORKDIR /
-COPY --from=builder /workspace/manager .
-USER 65532:65532
+COPY --from=builder /workspace/cronhpa-controller .
+COPY docker-entrypoint.sh .
+RUN chmod +x /docker-entrypoint.sh
 
-ENTRYPOINT ["/manager"]
+ENTRYPOINT  ["/docker-entrypoint.sh"]
+CMD ["/cronhpa-controller"]
+

@@ -63,7 +63,7 @@ spec:
                       format: int32
                       type: integer
                   required:
-                  - maxSize
+#                  - maxSize
                   - name
                   - schedule
                   - targetSize
