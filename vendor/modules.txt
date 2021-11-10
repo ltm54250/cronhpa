@@ -55,6 +55,9 @@ github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
 github.com/googleapis/gnostic/jsonschema
 github.com/googleapis/gnostic/openapiv2
+# github.com/gorilla/mux v1.8.0
+## explicit
+github.com/gorilla/mux
 # github.com/imdario/mergo v0.3.12
 github.com/imdario/mergo
 # github.com/json-iterator/go v1.1.11

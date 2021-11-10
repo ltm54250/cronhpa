@@ -3,6 +3,7 @@ module example.com/cronhpa
 go 1.16
 
 require (
+	github.com/gorilla/mux v1.8.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
 	github.com/satori/go.uuid v1.2.0

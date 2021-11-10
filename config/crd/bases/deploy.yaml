@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubernetes-cronhpa-controller
+  namespace: kube-system
+  labels:
+    app: kubernetes-cronhpa-controller
+    controller-tools.k8s.io: "2.0"
+spec:
+  replicas: 1 # The default is primary and standby mode (currently cold standby)
+  selector:
+    matchLabels:
+      app: kubernetes-cronhpa-controller
+      controller-tools.k8s.io: "2.0"
+  template:
+    metadata:
+      labels:
+        app: kubernetes-cronhpa-controller
+        controller-tools.k8s.io: "2.0"
+    spec:
+      containers:
+      - image: 
+        imagePullPolicy: Always
+        name: kubernetes-cronhpa-controller
+        env:
+        - name: TZ
+          value: "Asia/Shanghai"
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+      serviceAccount: kubernetes-cronhpa-controller
