@@ -15,6 +15,7 @@ COPY api/ api/
 COPY controllers/ controllers/
 COPY cron/ cron/
 COPY lib/ lib/
+COPY server/ server/
 
 
 # Build
