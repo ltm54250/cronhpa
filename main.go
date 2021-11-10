@@ -77,11 +77,16 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-
-	if err = (&controllers.CronHorizontalPodAutoscalerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	/*
+		if err = (&controllers.CronHorizontalPodAutoscalerReconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "CronHorizontalPodAutoscaler")
+			os.Exit(1)
+		}
+	*/
+	if err = (controllers.NewReconciler(mgr)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CronHorizontalPodAutoscaler")
 		os.Exit(1)
 	}

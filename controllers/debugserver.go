@@ -2,12 +2,13 @@ package controllers
 
 import (
 	"encoding/json"
-	"example.com/cronhpa/server"
-	"github.com/gorilla/mux"
 	"html/template"
-	"k8s.io/klog/v2"
 	"net/http"
 	"time"
+
+	"example.com/cronhpa/server"
+	"github.com/gorilla/mux"
+	"k8s.io/klog/v2"
 )
 
 type WebServer struct {

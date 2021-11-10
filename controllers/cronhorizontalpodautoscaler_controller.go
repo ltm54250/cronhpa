@@ -31,12 +31,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	klog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-/*
 // newReconciler returns a new reconcile.Reconciler
-func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
+func NewReconciler(mgr manager.Manager) *CronHorizontalPodAutoscalerReconciler {
 	var stopChan chan struct{}
 	cm := NewCronManager(mgr.GetConfig(), mgr.GetClient(), mgr.GetEventRecorderFor("CronHorizontalPodAutoscaler"))
 	r := &CronHorizontalPodAutoscalerReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), CronManager: cm}
@@ -53,8 +53,6 @@ func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
 }
 
 var _ reconcile.Reconciler = &CronHorizontalPodAutoscalerReconciler{}
-
-*/
 
 // CronHorizontalPodAutoscalerReconciler reconciles a CronHorizontalPodAutoscaler object
 type CronHorizontalPodAutoscalerReconciler struct {
