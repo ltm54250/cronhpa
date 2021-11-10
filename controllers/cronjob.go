@@ -189,13 +189,16 @@ func (ch *CronJobHPA) ScaleHPA() (msg string, err error) {
 		*hpa.Spec.MinReplicas = ch.DesiredSize
 		updateHPA = true
 	}
-
-	if ch.MaxSize > hpa.Spec.MaxReplicas {
+	fmt.Sprintf("prepare modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+	if (ch.MaxSize != hpa.Spec.MaxReplicas) && (ch.MaxSize > ch.DesiredSize) {
+		fmt.Sprintf("start modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
 		hpa.Spec.MaxReplicas = ch.MaxSize
 		ch.DesiredSize = hpa.Status.CurrentReplicas
 		updateHPA = true
+	} else {
+		fmt.Sprintf("skip modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
 	}
-
+	fmt.Sprintf("complete modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
 	if updateHPA {
 		err = ch.client.Update(ctx, hpa)
 		if err != nil {
@@ -288,6 +291,7 @@ func CronHPAJobFactory(instance *v1.CronHorizontalPodAutoscaler, job v1.Job, sca
 		name:         job.Name,
 		Plan:         job.Schedule,
 		DesiredSize:  job.TargetSize,
+		MaxSize:      job.MaxSize,
 		RunOnce:      job.RunOnce,
 		scaler:       scaler,
 		mapper:       mapper,
