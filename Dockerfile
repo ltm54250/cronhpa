@@ -16,7 +16,7 @@ COPY controllers/ controllers/
 COPY cron/ cron/
 COPY lib/ lib/
 COPY server/ server/
-
+COPY vendor/ vendor/
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -o cronhpa-controller main.go

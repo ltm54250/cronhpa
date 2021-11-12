@@ -81,6 +81,7 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 	log.Infof("Start to handle cronHPA %s in %s namespace", req.Name, req.Namespace)
 	instance := &v1.CronHorizontalPodAutoscaler{}
 	err := r.Get(context.TODO(), req.NamespacedName, instance)
+	fmt.Println(instance.Status.Conditions)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -98,7 +99,9 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 	leftConditions := make([]v1.Condition, 0)
 	// check scaleTargetRef and excludeDates
 	if checkGlobalParamsChanges(instance.Status, instance.Spec) {
+		fmt.Println("heckGlobalParamsChanges is true")
 		for _, cJob := range conditions {
+			log.Infof("start delete cjob nmae:%s,id:%s", cJob.Name, cJob.JobId)
 			err := r.CronManager.delete(cJob.JobId)
 			if err != nil {
 				log.Errorf("Failed to delete job %s,because of %v", cJob.Name, err)
@@ -109,14 +112,18 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 		instance.Status.ExcludeDates = instance.Spec.ExcludeDates
 	} else {
 		// check status and delete the expired job
+		fmt.Println("heckGlobalParamsChanges is false")
 		for _, cJob := range conditions {
 			skip := false
 			for _, job := range instance.Spec.Jobs {
 				if cJob.Name == job.Name {
+					log.Infof("submit job name is the same")
 					// schedule has changed or RunOnce changed
 					if cJob.Schedule != job.Schedule || cJob.RunOnce != job.RunOnce || cJob.TargetSize != job.TargetSize || cJob.MaxSize != job.MaxSize {
 						// jobId exists and remove the job from cronManager
+						fmt.Println("job spec has changed")
 						if cJob.JobId != "" {
+							log.Infof("start delete cjob nmae:%s,id:%s", cJob.Name, cJob.JobId)
 							err := r.CronManager.delete(cJob.JobId)
 							if err != nil {
 								log.Errorf("Failed to delete expired job %s,because of %v", cJob.Name, err)
@@ -124,11 +131,12 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 						}
 						continue
 					}
+					log.Infof("job spec has not changed,cjob:%s,id:%s", cJob.Name, cJob.JobId)
 					skip = true
 				}
 			}
-
 			if !skip {
+				log.Infof("job spec has  changed,not skip,cjob:%s,id:%s", cJob.Name, cJob.JobId)
 				if cJob.JobId != "" {
 					err := r.CronManager.delete(cJob.JobId)
 					if err != nil {
@@ -139,6 +147,7 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 
 			// need remove this condition because this is not job spec
 			if skip {
+				log.Infof("job spec has not changed,skip,cjob:%s,id:%s", cJob.Name, cJob.JobId)
 				leftConditions = append(leftConditions, cJob)
 			}
 		}
@@ -147,6 +156,8 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 	// update the left to next step
 	instance.Status.Conditions = leftConditions
 	leftConditionsMap := convertConditionMaps(leftConditions)
+	fmt.Println("left conditions map:")
+	fmt.Println(leftConditionsMap)
 
 	noNeedUpdateStatus := true
 
@@ -166,11 +177,13 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 			jobCondition.Message = fmt.Sprintf("Failed to create cron hpa job %s,because of %v", job.Name, err)
 			log.Errorf("Failed to create cron hpa job %s,because of %v", job.Name, err)
 		} else {
+			log.Infof("start create new job,name:%s", job.Name)
 			name := job.Name
 			if c, ok := leftConditionsMap[name]; ok {
+				log.Infof("get old job,name:%s,id:%s", c.Name, c.JobId)
 				jobId := c.JobId
 				j.SetID(jobId)
-
+				log.Infof("set old id:%s to new job:%s,new id:%s", c.JobId, j.Name(), j.ID())
 				// run once and return when reaches the final state
 				if runOnce(job) && (c.State == v1.Succeed || c.State == v1.Failed) {
 					err := r.CronManager.delete(jobId)
@@ -180,25 +193,30 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 					continue
 				}
 			}
-
+			log.Infof("has prepared job,name:%s,id:%s", j.Name(), j.ID())
 			jobCondition.JobId = j.ID()
 			err := r.CronManager.createOrUpdate(j)
 			if err != nil {
 				if _, ok := err.(*NoNeedUpdate); ok {
+					log.Infof("created or update job failed ,return no need update,name:%s,id:%s", j.Name(), j.ID())
 					continue
 				} else {
+					log.Infof("created or update job failed ,name:%s,id:%s", j.Name(), j.ID())
 					jobCondition.State = v1.Failed
 					jobCondition.Message = fmt.Sprintf("Failed to update cron hpa job %s,because of %v", job.Name, err)
 				}
 			} else {
+				log.Infof("created orupdate job success ,name:%s,id:%s", j.Name(), j.ID())
 				jobCondition.State = v1.Submitted
 			}
 		}
 		noNeedUpdateStatus = false
 		instance.Status.Conditions = updateConditions(instance.Status.Conditions, jobCondition)
 	}
+	fmt.Println(instance.Status.Conditions)
 	// conditions doesn't changed and no need to update.
 	if !noNeedUpdateStatus || len(leftConditions) != len(conditions) {
+		fmt.Println("start update instance")
 		err := r.Update(context.Background(), instance)
 		if err != nil {
 			log.Errorf("Failed to update cron hpa %s status,because of %v", instance.Name, err)
@@ -237,6 +255,7 @@ func updateConditions(conditions []v1.Condition, condition v1.Condition) []v1.Co
 func checkGlobalParamsChanges(status v1.CronHorizontalPodAutoscalerStatus, spec v1.CronHorizontalPodAutoscalerSpec) bool {
 	if &status.ScaleTargetRef != nil && (status.ScaleTargetRef.Kind != spec.ScaleTargetRef.Kind || status.ScaleTargetRef.ApiVersion != spec.ScaleTargetRef.ApiVersion ||
 		status.ScaleTargetRef.Name != spec.ScaleTargetRef.Name) {
+		fmt.Println("checkGlobalParamsChanges first true")
 		return true
 	}
 
@@ -249,10 +268,12 @@ func checkGlobalParamsChanges(status v1.CronHorizontalPodAutoscalerStatus, spec 
 		if excludeDatesMap[date] {
 			delete(excludeDatesMap, date)
 		} else {
+			fmt.Println("checkGlobalParamsChanges second true")
 			return true
 		}
 	}
 	// excludeMap change
+	fmt.Println("checkGlobalParamsChanges last true")
 	return len(excludeDatesMap) != 0
 }
 

@@ -178,27 +178,30 @@ func (ch *CronJobHPA) ScaleHPA() (msg string, err error) {
 	}
 
 	updateHPA := false
-
-	if ch.DesiredSize > hpa.Spec.MaxReplicas {
-		hpa.Spec.MaxReplicas = ch.DesiredSize
-		*hpa.Spec.MinReplicas = ch.DesiredSize
-		updateHPA = true
-	}
-
-	if ch.DesiredSize <= hpa.Spec.MaxReplicas {
-		*hpa.Spec.MinReplicas = ch.DesiredSize
-		updateHPA = true
-	}
-	fmt.Sprintf("prepare modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
-	if (ch.MaxSize != hpa.Spec.MaxReplicas) && (ch.MaxSize > ch.DesiredSize) {
-		fmt.Sprintf("start modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
-		hpa.Spec.MaxReplicas = ch.MaxSize
-		ch.DesiredSize = hpa.Status.CurrentReplicas
-		updateHPA = true
+	if ch.MaxSize > 0 {
+		fmt.Printf("prepare modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+		if (ch.MaxSize != hpa.Spec.MaxReplicas) && (ch.MaxSize > ch.DesiredSize) {
+			fmt.Printf("start modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+			hpa.Spec.MaxReplicas = ch.MaxSize
+			ch.DesiredSize = hpa.Status.CurrentReplicas
+			updateHPA = true
+		} else {
+			fmt.Printf("skip modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+		}
+		fmt.Printf("complete modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
 	} else {
-		fmt.Sprintf("skip modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+		if ch.DesiredSize > hpa.Spec.MaxReplicas {
+			hpa.Spec.MaxReplicas = ch.DesiredSize
+			*hpa.Spec.MinReplicas = ch.DesiredSize
+			updateHPA = true
+		}
+
+		if ch.DesiredSize <= hpa.Spec.MaxReplicas {
+			*hpa.Spec.MinReplicas = ch.DesiredSize
+			updateHPA = true
+		}
 	}
-	fmt.Sprintf("complete modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+
 	if updateHPA {
 		err = ch.client.Update(ctx, hpa)
 		if err != nil {

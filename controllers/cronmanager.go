@@ -54,14 +54,17 @@ func (cm *CronManager) createOrUpdate(j CronJob) error {
 	cm.Lock()
 	defer cm.Unlock()
 	if _, ok := cm.jobQueue[j.ID()]; !ok {
+		fmt.Printf("cu func start create job:%s \n", j.ID())
 		err := cm.cronExecutor.AddJob(j)
 		if err != nil {
 			return fmt.Errorf("Failed to add job to cronExecutor,because of %v", err)
 		}
 		cm.jobQueue[j.ID()] = j
+		fmt.Println(cm.jobQueue)
 		log.Infof("cronHPA job %s of cronHPA %s in %s created, %d active jobs exist", j.Name(), j.CronHPAMeta().Name, j.CronHPAMeta().Namespace,
 			len(cm.jobQueue))
 	} else {
+		fmt.Printf("cu func start update job:%s \n", j.ID())
 		job := cm.jobQueue[j.ID()]
 		if ok := job.Equals(j); !ok {
 			err := cm.cronExecutor.Update(j)
@@ -83,10 +86,14 @@ func (cm *CronManager) delete(id string) error {
 	defer cm.Unlock()
 	if j, ok := cm.jobQueue[id]; ok {
 		err := cm.cronExecutor.RemoveJob(j)
+		fmt.Printf("delete func delete job:%s from cronExecutor job queue\n", id)
 		if err != nil {
 			return fmt.Errorf("Failed to remove job from cronExecutor,because of %v", err)
 		}
+		fmt.Println(cm.jobQueue)
+		fmt.Printf("delete func start delete job:%s from cm job queue\n", id)
 		delete(cm.jobQueue, id)
+		fmt.Println(cm.jobQueue)
 		log.Infof("Remove cronHPA job %s of cronHPA %s in %s from jobQueue,%d active jobs left", j.Name(), j.CronHPAMeta().Name, j.CronHPAMeta().Namespace, len(cm.jobQueue))
 	}
 	return nil
