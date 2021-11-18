@@ -52,7 +52,8 @@ rules:
       - autoscaling.example.com
     resources:
       - cronhorizontalpodautoscalers
-      - elasticworkloads
+      - cronhorizontalpodautoscalers/status
+      - cronhorizontalpodautoscalers/finalizers
     verbs:
       - get
       - list

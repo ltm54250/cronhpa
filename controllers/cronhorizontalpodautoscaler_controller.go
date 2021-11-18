@@ -23,7 +23,6 @@ import (
 	"time"
 
 	autoscalingv1 "example.com/cronhpa/api/v1"
-	v1 "example.com/cronhpa/api/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -79,8 +78,12 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 
 	// Fetch the CronHorizontalPodAutoscaler instance
 	log.Infof("Start to handle cronHPA %s in %s namespace", req.Name, req.Namespace)
-	instance := &v1.CronHorizontalPodAutoscaler{}
-	err := r.Get(context.TODO(), req.NamespacedName, instance)
+	instance := &autoscalingv1.CronHorizontalPodAutoscaler{}
+	err := r.Get(ctx, req.NamespacedName, instance)
+	fmt.Println("================")
+	fmt.Println(instance.Spec)
+	fmt.Println(instance.Status)
+	fmt.Println("================")
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -95,9 +98,10 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 	//log.Infof("%v is handled by cron-hpa controller", instance.Name)
 	conditions := instance.Status.Conditions
 
-	leftConditions := make([]v1.Condition, 0)
+	leftConditions := make([]autoscalingv1.Condition, 0)
 	// check scaleTargetRef and excludeDates
 	if checkGlobalParamsChanges(instance.Status, instance.Spec) {
+		fmt.Println("global changed")
 		for _, cJob := range conditions {
 			err := r.CronManager.delete(cJob.JobId)
 			if err != nil {
@@ -108,15 +112,19 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 		instance.Status.ScaleTargetRef = instance.Spec.ScaleTargetRef
 		instance.Status.ExcludeDates = instance.Spec.ExcludeDates
 	} else {
+		fmt.Println("global not changed")
 		// check status and delete the expired job
 		for _, cJob := range conditions {
 			skip := false
 			for _, job := range instance.Spec.Jobs {
 				if cJob.Name == job.Name {
+					fmt.Println("job name is same")
 					// schedule has changed or RunOnce changed
 					if cJob.Schedule != job.Schedule || cJob.RunOnce != job.RunOnce || cJob.TargetSize != job.TargetSize || cJob.MaxSize != job.MaxSize {
 						// jobId exists and remove the job from cronManager
+						fmt.Println("job property has changed")
 						if cJob.JobId != "" {
+							fmt.Println("start delete job")
 							err := r.CronManager.delete(cJob.JobId)
 							if err != nil {
 								log.Errorf("Failed to delete expired job %s,because of %v", cJob.Name, err)
@@ -151,7 +159,7 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 	noNeedUpdateStatus := true
 
 	for _, job := range instance.Spec.Jobs {
-		jobCondition := v1.Condition{
+		jobCondition := autoscalingv1.Condition{
 			Name:          job.Name,
 			Schedule:      job.Schedule,
 			RunOnce:       job.RunOnce,
@@ -162,7 +170,7 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 		j, err := CronHPAJobFactory(instance, job, r.CronManager.scaler, r.CronManager.mapper, r.Client)
 
 		if err != nil {
-			jobCondition.State = v1.Failed
+			jobCondition.State = autoscalingv1.Failed
 			jobCondition.Message = fmt.Sprintf("Failed to create cron hpa job %s,because of %v", job.Name, err)
 			log.Errorf("Failed to create cron hpa job %s,because of %v", job.Name, err)
 		} else {
@@ -172,7 +180,7 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 				j.SetID(jobId)
 
 				// run once and return when reaches the final state
-				if runOnce(job) && (c.State == v1.Succeed || c.State == v1.Failed) {
+				if runOnce(job) && (c.State == autoscalingv1.Succeed || c.State == autoscalingv1.Failed) {
 					err := r.CronManager.delete(jobId)
 					if err != nil {
 						log.Errorf("cron hpa %s(%s) has ran once but fail to exit,because of %v", name, jobId, err)
@@ -187,11 +195,11 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 				if _, ok := err.(*NoNeedUpdate); ok {
 					continue
 				} else {
-					jobCondition.State = v1.Failed
+					jobCondition.State = autoscalingv1.Failed
 					jobCondition.Message = fmt.Sprintf("Failed to update cron hpa job %s,because of %v", job.Name, err)
 				}
 			} else {
-				jobCondition.State = v1.Submitted
+				jobCondition.State = autoscalingv1.Submitted
 			}
 		}
 		noNeedUpdateStatus = false
@@ -199,9 +207,14 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 	}
 	// conditions doesn't changed and no need to update.
 	if !noNeedUpdateStatus || len(leftConditions) != len(conditions) {
-		err := r.Update(context.Background(), instance)
+		err := r.Update(ctx, instance)
 		if err != nil {
-			log.Errorf("Failed to update cron hpa %s status,because of %v", instance.Name, err)
+			log.Errorf("Failed to update cron hpa %s ,because of %v", instance.Name, err)
+		} else {
+			err = r.Status().Update(ctx, instance)
+			if err != nil {
+				log.Errorf("Failed to update cron hpa %s status,because of %v", instance.Name, err)
+			}
 		}
 	}
 
@@ -215,16 +228,16 @@ func (r *CronHorizontalPodAutoscalerReconciler) SetupWithManager(mgr ctrl.Manage
 		Complete(r)
 }
 
-func convertConditionMaps(conditions []v1.Condition) map[string]v1.Condition {
-	m := make(map[string]v1.Condition)
+func convertConditionMaps(conditions []autoscalingv1.Condition) map[string]autoscalingv1.Condition {
+	m := make(map[string]autoscalingv1.Condition)
 	for _, condition := range conditions {
 		m[condition.Name] = condition
 	}
 	return m
 }
 
-func updateConditions(conditions []v1.Condition, condition v1.Condition) []v1.Condition {
-	r := make([]v1.Condition, 0)
+func updateConditions(conditions []autoscalingv1.Condition, condition autoscalingv1.Condition) []autoscalingv1.Condition {
+	r := make([]autoscalingv1.Condition, 0)
 	m := convertConditionMaps(conditions)
 	m[condition.Name] = condition
 	for _, condition := range m {
@@ -234,7 +247,7 @@ func updateConditions(conditions []v1.Condition, condition v1.Condition) []v1.Co
 }
 
 // if global params changed then all jobs need to be recreated.
-func checkGlobalParamsChanges(status v1.CronHorizontalPodAutoscalerStatus, spec v1.CronHorizontalPodAutoscalerSpec) bool {
+func checkGlobalParamsChanges(status autoscalingv1.CronHorizontalPodAutoscalerStatus, spec autoscalingv1.CronHorizontalPodAutoscalerSpec) bool {
 	if &status.ScaleTargetRef != nil && (status.ScaleTargetRef.Kind != spec.ScaleTargetRef.Kind || status.ScaleTargetRef.ApiVersion != spec.ScaleTargetRef.ApiVersion ||
 		status.ScaleTargetRef.Name != spec.ScaleTargetRef.Name) {
 		return true
@@ -256,7 +269,7 @@ func checkGlobalParamsChanges(status v1.CronHorizontalPodAutoscalerStatus, spec 
 	return len(excludeDatesMap) != 0
 }
 
-func runOnce(job v1.Job) bool {
+func runOnce(job autoscalingv1.Job) bool {
 	if strings.Contains(job.Schedule, "@date ") || job.RunOnce {
 		return true
 	}

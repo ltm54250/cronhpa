@@ -81,12 +81,15 @@ func (cm *CronManager) createOrUpdate(j CronJob) error {
 func (cm *CronManager) delete(id string) error {
 	cm.Lock()
 	defer cm.Unlock()
+	fmt.Println(cm.jobQueue)
 	if j, ok := cm.jobQueue[id]; ok {
+		fmt.Println("delete job from cmjobqueue")
 		err := cm.cronExecutor.RemoveJob(j)
 		if err != nil {
 			return fmt.Errorf("Failed to remove job from cronExecutor,because of %v", err)
 		}
 		delete(cm.jobQueue, id)
+		fmt.Println(cm.jobQueue)
 		log.Infof("Remove cronHPA job %s of cronHPA %s in %s from jobQueue,%d active jobs left", j.Name(), j.CronHPAMeta().Name, j.CronHPAMeta().Namespace, len(cm.jobQueue))
 	}
 	return nil

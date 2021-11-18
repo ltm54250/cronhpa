@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	v1 "example.com/cronhpa/api/v1"
+	autoscalingv1 "example.com/cronhpa/api/v1"
 	"example.com/cronhpa/cron"
 	uuid "github.com/satori/go.uuid"
 	autoscalingapi "k8s.io/api/autoscaling/v1"
@@ -34,7 +34,7 @@ type CronJob interface {
 	Equals(Job CronJob) bool
 	SchedulePlan() string
 	Ref() *TargetRef
-	CronHPAMeta() *v1.CronHorizontalPodAutoscaler
+	CronHPAMeta() *autoscalingv1.CronHorizontalPodAutoscaler
 	Run() (msg string, err error)
 }
 
@@ -53,7 +53,7 @@ func (tr *TargetRef) toString() string {
 
 type CronJobHPA struct {
 	TargetRef    *TargetRef
-	HPARef       *v1.CronHorizontalPodAutoscaler
+	HPARef       *autoscalingv1.CronHorizontalPodAutoscaler
 	id           string
 	name         string
 	DesiredSize  int32
@@ -94,7 +94,7 @@ func (ch *CronJobHPA) Ref() *TargetRef {
 	return ch.TargetRef
 }
 
-func (ch *CronJobHPA) CronHPAMeta() *v1.CronHorizontalPodAutoscaler {
+func (ch *CronJobHPA) CronHPAMeta() *autoscalingv1.CronHorizontalPodAutoscaler {
 	return ch.HPARef
 }
 
@@ -266,7 +266,7 @@ func checkPlanValid(plan string) error {
 	return nil
 }
 
-func CronHPAJobFactory(instance *v1.CronHorizontalPodAutoscaler, job v1.Job, scaler scaleclient.ScalesGetter, mapper apimeta.RESTMapper, client client.Client) (CronJob, error) {
+func CronHPAJobFactory(instance *autoscalingv1.CronHorizontalPodAutoscaler, job autoscalingv1.Job, scaler scaleclient.ScalesGetter, mapper apimeta.RESTMapper, client client.Client) (CronJob, error) {
 	arr := strings.Split(instance.Spec.ScaleTargetRef.ApiVersion, "/")
 	group := arr[0]
 	version := arr[1]
