@@ -207,13 +207,15 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 	}
 	// conditions doesn't changed and no need to update.
 	if !noNeedUpdateStatus || len(leftConditions) != len(conditions) {
-		err := r.Update(ctx, instance)
+		err := r.Status().Update(ctx, instance)
 		if err != nil {
-			log.Errorf("Failed to update cron hpa %s ,because of %v", instance.Name, err)
+			log.Errorf("Failed to update cron hpa %s status,because of %v", instance.Name, err)
+			return ctrl.Result{}, err
 		} else {
-			err = r.Status().Update(ctx, instance)
+			err = r.Update(ctx, instance)
 			if err != nil {
-				log.Errorf("Failed to update cron hpa %s status,because of %v", instance.Name, err)
+				log.Errorf("Failed to update cron hpa %s,because of %v", instance.Name, err)
+				return ctrl.Result{}, err
 			}
 		}
 	}
