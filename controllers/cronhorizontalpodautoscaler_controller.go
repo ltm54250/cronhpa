@@ -80,10 +80,6 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 	log.Infof("Start to handle cronHPA %s in %s namespace", req.Name, req.Namespace)
 	instance := &autoscalingv1.CronHorizontalPodAutoscaler{}
 	err := r.Get(ctx, req.NamespacedName, instance)
-	fmt.Println("================")
-	fmt.Println(instance.Spec)
-	fmt.Println(instance.Status)
-	fmt.Println("================")
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -101,7 +97,6 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 	leftConditions := make([]autoscalingv1.Condition, 0)
 	// check scaleTargetRef and excludeDates
 	if checkGlobalParamsChanges(instance.Status, instance.Spec) {
-		fmt.Println("global changed")
 		for _, cJob := range conditions {
 			err := r.CronManager.delete(cJob.JobId)
 			if err != nil {
@@ -112,19 +107,15 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 		instance.Status.ScaleTargetRef = instance.Spec.ScaleTargetRef
 		instance.Status.ExcludeDates = instance.Spec.ExcludeDates
 	} else {
-		fmt.Println("global not changed")
 		// check status and delete the expired job
 		for _, cJob := range conditions {
 			skip := false
 			for _, job := range instance.Spec.Jobs {
 				if cJob.Name == job.Name {
-					fmt.Println("job name is same")
 					// schedule has changed or RunOnce changed
 					if cJob.Schedule != job.Schedule || cJob.RunOnce != job.RunOnce || cJob.TargetSize != job.TargetSize || cJob.MaxSize != job.MaxSize {
 						// jobId exists and remove the job from cronManager
-						fmt.Println("job property has changed")
 						if cJob.JobId != "" {
-							fmt.Println("start delete job")
 							err := r.CronManager.delete(cJob.JobId)
 							if err != nil {
 								log.Errorf("Failed to delete expired job %s,because of %v", cJob.Name, err)
