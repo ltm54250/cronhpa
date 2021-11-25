@@ -107,6 +107,13 @@ type CronHorizontalPodAutoscalerList struct {
 	Items           []CronHorizontalPodAutoscaler `json:"items"`
 }
 
+//debugserver return info
+type CronHPAContent struct {
+	Namespace string                          `json:"namespace"`
+	Name      string                          `json:"name"`
+	Spec      CronHorizontalPodAutoscalerSpec `json:"spec"`
+}
+
 func init() {
 	SchemeBuilder.Register(&CronHorizontalPodAutoscaler{}, &CronHorizontalPodAutoscalerList{})
 }

@@ -37,17 +37,19 @@ import (
 // newReconciler returns a new reconcile.Reconciler
 func NewReconciler(mgr manager.Manager) *CronHorizontalPodAutoscalerReconciler {
 	var stopChan chan struct{}
+	//crdmap debug server used
+	crdMap := make(map[string]autoscalingv1.CronHPAContent)
 	cm := NewCronManager(mgr.GetConfig(), mgr.GetClient(), mgr.GetEventRecorderFor("CronHorizontalPodAutoscaler"))
-	r := &CronHorizontalPodAutoscalerReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), CronManager: cm}
+	r := &CronHorizontalPodAutoscalerReconciler{Client: mgr.GetClient(), Scheme: mgr.GetScheme(), CronManager: cm, CrdMap: crdMap}
 	go func(cronManager *CronManager, stopChan chan struct{}) {
 		cm.Run(stopChan)
 		<-stopChan
 	}(cm, stopChan)
 
-	go func(cronManager *CronManager, stopChan chan struct{}) {
-		server := NewWebServer(cronManager)
+	go func(cronManager *CronManager, stopChan chan struct{}, crdmap map[string]autoscalingv1.CronHPAContent) {
+		server := NewWebServer(mgr.GetClient(), cronManager, crdmap)
 		server.serve()
-	}(cm, stopChan)
+	}(cm, stopChan, crdMap)
 	return r
 }
 
@@ -58,6 +60,7 @@ type CronHorizontalPodAutoscalerReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
 	CronManager *CronManager
+	CrdMap      map[string]autoscalingv1.CronHPAContent
 }
 
 //+kubebuilder:rbac:groups=autoscaling.example.com,resources=cronhorizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
@@ -78,19 +81,31 @@ func (r *CronHorizontalPodAutoscalerReconciler) Reconcile(ctx context.Context, r
 
 	// Fetch the CronHorizontalPodAutoscaler instance
 	log.Infof("Start to handle cronHPA %s in %s namespace", req.Name, req.Namespace)
+	//delete bebug server crd
+	crdkey := fmt.Sprintf("%s%s", req.Namespace, req.Name)
+	if _, ok := r.CrdMap[crdkey]; ok {
+		delete(r.CrdMap, crdkey)
+	}
 	instance := &autoscalingv1.CronHorizontalPodAutoscaler{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
 			// For additional cleanup logic use finalizers.
+			fmt.Println("start gc")
 			go r.CronManager.GC()
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	} else {
+		//write crd resource to map
+		r.CrdMap[crdkey] = autoscalingv1.CronHPAContent{
+			Namespace: instance.Namespace,
+			Name:      instance.Name,
+			Spec:      instance.Spec,
+		}
 	}
-
 	//log.Infof("%v is handled by cron-hpa controller", instance.Name)
 	conditions := instance.Status.Conditions
 
