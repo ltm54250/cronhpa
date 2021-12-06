@@ -39,6 +39,7 @@ type Job struct {
 	RunOnce    bool  `json:"runOnce,omitempty"`
 	TargetSize int32 `json:"targetSize"`
 	MaxSize    int32 `json:"maxSize"`
+	OnlySetMax bool  `json:"onlySetMax,omitempty"`
 }
 
 type ScaleTargetRef struct {
@@ -66,6 +67,8 @@ type Condition struct {
 	TargetSize int32 `json:"targetSize"`
 
 	MaxSize int32 `json:"maxSize"`
+
+	OnlySetMax bool `json:"onlySetMax"`
 
 	RunOnce bool `json:"runOnce"`
 
