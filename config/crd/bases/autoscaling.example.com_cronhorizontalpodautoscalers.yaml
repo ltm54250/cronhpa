@@ -14,8 +14,6 @@ spec:
     listKind: CronHorizontalPodAutoscalerList
     plural: cronhorizontalpodautoscalers
     singular: cronhorizontalpodautoscaler
-    shortNames:
-    - cronhpa
   scope: Namespaced
   versions:
   - name: v1
@@ -54,6 +52,8 @@ spec:
                       type: integer
                     name:
                       type: string
+                    onlySetMax:
+                      type: boolean
                     runOnce:
                       description: job will only run once if enabled.
                       type: boolean
@@ -110,6 +110,8 @@ spec:
                     name:
                       description: Type of job condition, Complete or Failed.
                       type: string
+                    onlySetMax:
+                      type: boolean
                     runOnce:
                       type: boolean
                     schedule:
@@ -124,6 +126,7 @@ spec:
                   - lastProbeTime
                   - maxSize
                   - name
+                  - onlySetMax
                   - runOnce
                   - schedule
                   - state

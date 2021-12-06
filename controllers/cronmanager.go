@@ -131,6 +131,7 @@ func (cm *CronManager) JobResultHandler(js *cron.JobResult) {
 		RunOnce:       job.RunOnce,
 		Schedule:      job.SchedulePlan(),
 		MaxSize:       job.MaxSize,
+		OnlySetMax:    job.OnlySetMax,
 		TargetSize:    job.DesiredSize,
 		LastProbeTime: metav1.Time{Time: time.Now()},
 		State:         state,

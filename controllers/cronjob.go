@@ -58,6 +58,7 @@ type CronJobHPA struct {
 	name         string
 	DesiredSize  int32
 	MaxSize      int32
+	OnlySetMax   bool
 	Plan         string
 	RunOnce      bool
 	scaler       scaleclient.ScalesGetter
@@ -178,27 +179,29 @@ func (ch *CronJobHPA) ScaleHPA() (msg string, err error) {
 	}
 
 	updateHPA := false
-
-	if ch.DesiredSize > hpa.Spec.MaxReplicas {
-		hpa.Spec.MaxReplicas = ch.DesiredSize
-		*hpa.Spec.MinReplicas = ch.DesiredSize
-		updateHPA = true
-	}
-
-	if ch.DesiredSize <= hpa.Spec.MaxReplicas {
-		*hpa.Spec.MinReplicas = ch.DesiredSize
-		updateHPA = true
-	}
-	log.Infof("prepare modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
-	if (ch.MaxSize != hpa.Spec.MaxReplicas) && (ch.MaxSize > ch.DesiredSize) {
-		log.Infof("start modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+	log.Infof("prepare modify onlysetmax:%s,maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", ch.OnlySetMax, hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+	if ch.OnlySetMax && ch.MaxSize != hpa.Spec.MaxReplicas {
+		log.Infof("modify hpa,onlysetmax:%s,old maxsize:%d,new maxsize:%d", ch.OnlySetMax, hpa.Spec.MaxReplicas, ch.MaxSize)
 		hpa.Spec.MaxReplicas = ch.MaxSize
-		ch.DesiredSize = hpa.Status.CurrentReplicas
 		updateHPA = true
 	} else {
-		log.Infof("skip modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+		log.Infof("modify hpa max, onlysetmax:true,old maxsize:%d,new maxsize:%d", ch.OnlySetMax, hpa.Spec.MaxReplicas, ch.MaxSize)
+		if ch.MaxSize != hpa.Spec.MaxReplicas && ch.MaxSize > ch.DesiredSize {
+			hpa.Spec.MaxReplicas = ch.MaxSize
+			updateHPA = true
+		} else {
+			log.Infof("skip modify hpa max, onlysetmax:true,old maxsize:%d,new maxsize:%d", ch.OnlySetMax, hpa.Spec.MaxReplicas, ch.MaxSize)
+		}
+		if ch.DesiredSize > hpa.Spec.MaxReplicas {
+			hpa.Spec.MaxReplicas = ch.DesiredSize
+			*hpa.Spec.MinReplicas = ch.DesiredSize
+			updateHPA = true
+		} else {
+			*hpa.Spec.MinReplicas = ch.DesiredSize
+			updateHPA = true
+		}
 	}
-	log.Infof("complete modify maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+	fmt.Printf("complete modify,newmax:%d,newmin:%d", hpa.Spec.MaxReplicas, *hpa.Spec.MinReplicas)
 	if updateHPA {
 		err = ch.client.Update(ctx, hpa)
 		if err != nil {
@@ -292,6 +295,7 @@ func CronHPAJobFactory(instance *autoscalingv1.CronHorizontalPodAutoscaler, job 
 		Plan:         job.Schedule,
 		DesiredSize:  job.TargetSize,
 		MaxSize:      job.MaxSize,
+		OnlySetMax:   job.OnlySetMax,
 		RunOnce:      job.RunOnce,
 		scaler:       scaler,
 		mapper:       mapper,
