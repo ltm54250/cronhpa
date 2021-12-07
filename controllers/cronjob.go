@@ -179,18 +179,18 @@ func (ch *CronJobHPA) ScaleHPA() (msg string, err error) {
 	}
 
 	updateHPA := false
-	log.Infof("prepare modify onlysetmax:%s,maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", ch.OnlySetMax, hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
+	log.Infof("prepare modify onlysetmax:%v,maxsize current:%d,desire:%d,newmax:%d,oldmax:%d", ch.OnlySetMax, hpa.Status.CurrentReplicas, ch.DesiredSize, ch.MaxSize, hpa.Spec.MaxReplicas)
 	if ch.OnlySetMax && ch.MaxSize != hpa.Spec.MaxReplicas {
-		log.Infof("modify hpa,onlysetmax:%s,old maxsize:%d,new maxsize:%d", ch.OnlySetMax, hpa.Spec.MaxReplicas, ch.MaxSize)
+		log.Infof("modify hpa,onlysetmax:%v,old maxsize:%d,new maxsize:%d", ch.OnlySetMax, hpa.Spec.MaxReplicas, ch.MaxSize)
 		hpa.Spec.MaxReplicas = ch.MaxSize
 		updateHPA = true
 	} else {
-		log.Infof("modify hpa max, onlysetmax:true,old maxsize:%d,new maxsize:%d", ch.OnlySetMax, hpa.Spec.MaxReplicas, ch.MaxSize)
+		log.Infof("modify hpa max, onlysetmax:false,old maxsize:%d,new maxsize:%d", hpa.Spec.MaxReplicas, ch.MaxSize)
 		if ch.MaxSize != hpa.Spec.MaxReplicas && ch.MaxSize > ch.DesiredSize {
 			hpa.Spec.MaxReplicas = ch.MaxSize
 			updateHPA = true
 		} else {
-			log.Infof("skip modify hpa max, onlysetmax:true,old maxsize:%d,new maxsize:%d", ch.OnlySetMax, hpa.Spec.MaxReplicas, ch.MaxSize)
+			log.Infof("skip modify hpa max, onlysetmax:false,old maxsize:%d,new maxsize:%d", hpa.Spec.MaxReplicas, ch.MaxSize)
 		}
 		if ch.DesiredSize > hpa.Spec.MaxReplicas {
 			hpa.Spec.MaxReplicas = ch.DesiredSize
@@ -201,7 +201,7 @@ func (ch *CronJobHPA) ScaleHPA() (msg string, err error) {
 			updateHPA = true
 		}
 	}
-	fmt.Printf("complete modify,newmax:%d,newmin:%d", hpa.Spec.MaxReplicas, *hpa.Spec.MinReplicas)
+	log.Infof("complete modify,newmax:%d,newmin:%d", hpa.Spec.MaxReplicas, *hpa.Spec.MinReplicas)
 	if updateHPA {
 		err = ch.client.Update(ctx, hpa)
 		if err != nil {
